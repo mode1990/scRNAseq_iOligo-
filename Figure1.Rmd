@@ -1,22 +1,19 @@
-Figure 1
-================
-2024-07-03
+---
+title: "Figure 1"
+date: "2024-07-03"
+output: 
+  github_document:
+    toc: true
+    toc_depth: 2
+---
 
-- [Load libraries](#load-libraries)
-- [Load the RNA-Seq data](#load-the-rna-seq-data)
-- [Adding cluster cell type names](#adding-cluster-cell-type-names)
-- [Cell Composition Analysis](#cell-composition-analysis)
-- [Figure 1-C: UMAP visualisation](#figure-1-c-umap-visualisation)
-- [Excluding sample 8 from the
-  analysis](#excluding-sample-8-from-the-analysis)
-- [Figure 1-G :Dotplot with known marker genes for cluster
-  identification](#figure-1-g-dotplot-with-known-marker-genes-for-cluster-identification)
-- [Figure 1-F: Celltype composition
-  calculation](#figure-1-f-celltype-composition-calculation)
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
 ## Load libraries
 
-``` r
+```{r, warning=FALSE, eval=TRUE, message=FALSE}
 .libPaths( c( "/data/Common_Folder/R/Single_cell_packages/", .libPaths()) )
 
 library(Seurat)
@@ -35,22 +32,15 @@ library(openxlsx)
 
 ## Load the RNA-Seq data
 
-``` r
+```{r}
 # Load the processed Seurat object from the specified path
 pd = readRDS("/data/dehestani/scRNAseq_iOligo/Processed_object/ODC35_Seurat_SCT_harmony_annotated_v1.rds")
 pd
 ```
 
-    ## An object of class Seurat 
-    ## 63649 features across 35184 samples within 2 assays 
-    ## Active assay: RNA (32969 features, 1891 variable features)
-    ##  3 layers present: scale.data, data, counts
-    ##  1 other assay present: SCT
-    ##  3 dimensional reductions calculated: pca, harmony, umap
-
 ## Adding cluster cell type names
 
-``` r
+```{r}
 # Assign cell type names to clusters
 Idents(pd) <- "sub.cluster"
 new.cluster.ids <- c("iPPC","iNL2", "iOPC", "iCEP", "iNL1", "iRGC", "iODC", "iINPC")
@@ -62,13 +52,10 @@ pd@meta.data$BroadCellType <- as.character(Idents(pd))
 table(pd$BroadCellType)
 ```
 
-    ## 
-    ##  iCEP iINPC  iNL1  iNL2  iODC  iOPC  iPPC  iRGC 
-    ##  2214  2550  9272  2355   627  2109  3493 12564
-
 ## Cell Composition Analysis
 
-``` r
+```{r}
+
 # Extract metadata and convert to data.table
 md <- pd@meta.data %>% as.data.table()
 
@@ -94,23 +81,31 @@ final_table <- final_table[, .(BroadCellType, N, Percentage, LRRK2, LRRK2_Percen
 colnames(final_table) <- c("BroadCellType", "N", "Percentage", "LRRK2", "Percentage", "HC", "Percentage")
 
 final_table
+
+
 ```
 
-    ## Key: <BroadCellType>
-    ##    BroadCellType     N Percentage LRRK2 Percentage    HC Percentage
-    ##           <char> <int>      <num> <int>      <num> <int>      <num>
-    ## 1:          iCEP  2214   6.292633  1562   4.439518   652  1.8531151
-    ## 2:         iINPC  2550   7.247613  1242   3.530014  1308  3.7175989
-    ## 3:          iNL1  9272  26.352888  4607  13.094020  4665 13.2588677
-    ## 4:          iNL2  2355   6.693383  1123   3.191792  1232  3.5015916
-    ## 5:          iODC   627   1.782060   367   1.043088   260  0.7389723
-    ## 6:          iOPC  2109   5.994202  1306   3.711915   803  2.2822874
-    ## 7:          iPPC  3493   9.927808  1961   5.573556  1532  4.3542519
-    ## 8:          iRGC 12564  35.709413  5957  16.930991  6607 18.7784220
+```{r, include=FALSE}
+# Create a new workbook and add a worksheet
+#wb <- createWorkbook()
+#addWorksheet(wb, "Sheet1")
+
+# Write the data to the worksheet
+#writeData(wb, "Sheet1", final_table, startRow = 3, startCol = 2)
+
+# Add bold titles with the same font size and style
+#header_style <- createStyle(fontSize = 12, fontName = "Calibri", textDecoration = "bold")
+#addStyle(wb, "Sheet1", header_style, rows = 3, cols = 2:8, gridExpand = TRUE)
+
+# Define the path to save the output table and save the workbook
+#pathto.outTable <- "/data/nasser/Manuscript/table/Supplementary Tables/"
+#saveWorkbook(wb,  file = paste0(pathto.outTable,"Sup2_incls8.xlsx"), overwrite = TRUE)
+
+```
 
 ## Figure 1-C: UMAP visualisation
 
-``` r
+```{r}
 # Set cell type identities
 Idents(pd) <- "BroadCellType"
 
@@ -129,13 +124,12 @@ p=DimPlot(pd, reduction = "umap", label = T, pt.size = 0.5, cols = rushmore_pale
 
 # Display the UMAP plot
 p
-```
 
-![](Figure1_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+```
 
 ## Excluding sample 8 from the analysis
 
-``` r
+```{r}
 # Define output path for processed object
 #pathto.outData = "/data/nasser/Manuscript/processedobject/"
 
@@ -147,11 +141,24 @@ pd <- subset(pd,idents = c("s1", "s2", "s3", "s4", "s5", "s6", "s7") )
 #saveRDS(pd, file = paste0(pathto.outData, "ODC35_woClus8_nasser"))
 ```
 
-\##Read in object without cluster 8
+##Read in object without cluster 8
+
+```{r, include=FALSE}
+# Load the processed Seurat object without sample 8
+pd = readRDS("/data/nasser/Manuscript/Strict_threshold/processedobject/ODC35_woClus8_subclust3_res0.15_NK")
+# Assign cell type names to clusters
+Idents(pd) <- "BroadCellType"
+new.cluster.ids <- c("iPPC","iNL2", "iOPC", "iCEP", "iNL1", "iRGC", "iODC", "iINPC")
+names(new.cluster.ids) <- levels(pd)
+pd <- RenameIdents(pd, new.cluster.ids)
+pd@meta.data$BroadCellType <- as.character(Idents(pd))
+
+
+```
 
 ## Figure 1-G :Dotplot with known marker genes for cluster identification
 
-``` r
+```{r, include=TRUE, warning=FALSE}
 # Define output path for plots
 #pathto.outPlots <- "/data/nasser/Manuscript/plots/figure1/"
 #outName <- "Figure1_d_"
@@ -171,20 +178,65 @@ levels(pd) <- c('iRGC','iINPC','iNL1', 'iNL2', 'iCEP','iPPC','iOPC','iODC')
 # Dot plot for cell markers
 #png(paste0(pathto.outPlots,outName,"Dotplot_cellmarkers_update.png"), width=2500, height=1500, res = 300)
 DotPlot(pd, idents = c('iRGC','iINPC','iNL1', 'iNL2', 'iCEP','iPPC ','iOPC','iODC'), assay = "RNA", features = Genes_dotPlot,  dot.min = 0.1, cols=c("blue", "red")) + scale_colour_gradient2(low="steelblue", mid="lightgrey", high="red") + RotatedAxis()
+#dev.off()
+
+
 ```
 
-    ## Scale for colour is already present.
-    ## Adding another scale for colour, which will replace the existing scale.
-
-![](Figure1_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
-
-``` r
+```{r, include=FALSE}
+#png(paste0(pathto.outPlots,outName,"Featureplot_cellmarkers_lrrk2_pdgfra_scna_th.png"), width=2500, height=1500, res = 300)
+#FeaturePlot(pd, features = c("LRRK2", "PDGFRA", "SNCA", "TH"))
 #dev.off()
+```
+
+```{r, include=FALSE}
+## iOPC exploration of LRRK2, RIT2, PDGFRA genes
+
+# Define output name for plots
+#outName <- "Figure1_f_"
+
+# Subset for iOPC cell type
+celltype_subset <- subset(pd, idents = "iOPC")
+Idents(celltype_subset) <- "Mutation"
+
+# Create and save dot plot for iOPC
+#png(paste0(pathto.outPlots,outName,"Dotplot_iOPC_condition.png"), width=2000, height=1100, res = 300)
+DotPlot(celltype_subset, features = c("LRRK2", "RIT2", "PDGFRA"), cols=c("blue", "red")) + scale_colour_gradient2(low="steelblue", mid="lightgrey", high="red") + RotatedAxis()
+#dev.off()
+
+# Create and save violin plot for iOPC
+#png(paste0(pathto.outPlots,outName,"vlnplot_iOPC_condition.png"), width=2000, height=1100, res = 300)
+VlnPlot(celltype_subset, features = c("LRRK2", "RIT2", "PDGFRA"))
+#dev.off()
+
+```
+
+```{r, include = FALSE}
+## Cluster iNL2 expression per condition
+
+# Define output name for plots
+#outName <- "Figure1_f_"
+
+# Subset for iNL2 cell type
+celltype_subset <- subset(pd, idents = "iNL2")
+Idents(celltype_subset) <- "Mutation"
+
+# Create and save dot plot for iNL2
+#png(paste0(pathto.outPlots,outName,"Dotplot_iNL2_condition.png"), width=2000, height=1100, res = 300)
+DotPlot(celltype_subset, features = c("SNCA"), cols=c("blue", "red")) + scale_colour_gradient2(low="steelblue", mid="lightgrey", high="red") + RotatedAxis()
+#dev.off()
+
+# Create and save violin plot for iNL2
+#png(paste0(pathto.outPlots,outName,"vlnplot_iNL2_condition.png"), width=2000, height=1100, res = 300)
+VlnPlot(celltype_subset, features = c("SNCA"))
+#dev.off()
+
 ```
 
 ## Figure 1-F: Celltype composition calculation
 
-``` r
+```{r}
+
 # Extract metadata and convert to data.table
 
 md <- pd@meta.data %>% as.data.table()
@@ -204,20 +256,7 @@ h <- subset(pd, subset = LRRK2 > 0)
 md <- pd@meta.data %>% as.data.table()
 
 md[, .N, by = c("BroadCellType")]
-```
 
-    ##    BroadCellType     N
-    ##           <char> <int>
-    ## 1:          iPPC  2916
-    ## 2:          iNL2  2199
-    ## 3:          iOPC  2065
-    ## 4:          iCEP  1984
-    ## 5:          iNL1  6928
-    ## 6:          iRGC 10832
-    ## 7:          iODC   614
-    ## 8:         iINPC  2021
-
-``` r
 d <- md[, .N, by = c("SampleID", "BroadCellType")] %>% dcast(., SampleID ~ BroadCellType, value.var = "N")
 
 # Summarize cell counts and calculate percentages for each cell type
@@ -249,16 +288,39 @@ d_sum$iNL2 <- (d_sum$iNL2 / d_sum$sum * 100)
 d_sum$Mutation <- c("LRRK2", "LRRK2", "LRRK2", "HC", "HC", "HC", "HC")
 
 d_sum
+
 ```
 
-    ## # A tibble: 7 × 11
-    ## # Rowwise: 
-    ##   SampleID  iCEP iINPC  iNL1  iNL2  iODC  iOPC  iPPC  iRGC   sum Mutation
-    ##   <chr>    <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <int> <chr>   
-    ## 1 s1       15.1   4.29 23.0   9.50 4.29   8.00 12.0   23.8  5198 LRRK2   
-    ## 2 s2        4.87  8.50  7.39  1.27 1.04  11.5   9.67  55.8  3857 LRRK2   
-    ## 3 s3       10.4   4.70 22.8  12.3  2.64  11.7  11.3   24.2  3445 LRRK2   
-    ## 4 s4        2.16  5.52 35.6  10.5  2.50   7.64  7.55  28.5  5602 HC      
-    ## 5 s5        3.20  9.58 35.0   4.34 1.09   1.78  8.32  36.7  6337 HC      
-    ## 6 s6        3.69  7.44 16.7  11.5  0.977  7.55 16.4   35.7  1842 HC      
-    ## 7 s7        7.93  7.78  4.45  4.70 1.01   3.75  8.51  61.9  3278 HC
+```{r, include=FALSE}
+## Celltype composition boxplot
+
+# Define output name for plots
+#outName <- "Figure1_g_"
+
+# Create and save a boxplot for cell type composition
+#png(paste0(pathto.outPlots,outName,"celltype_composition_boxplot.png"), width=2000, height=1100, res = 300)
+ggplot(pd@meta.data, aes(x=CellType, fill=Mutation)) + 
+  geom_bar(position = "fill") + geom_text(stat = 'count', aes(label = ..count..), position = position_fill(vjust = 0.5)) + RotatedAxis() + theme_classic()
+#dev.off()
+
+
+```
+
+```{r, include= FALSE}
+#Speckle analysis results
+
+# Calculate Fisher's exact test on cell type mutation composition to find the difference in the distribution of cell counts across different cell types (clusters) between the "HC" (Healthy Control) and "LRRK2" group
+
+# Define the path to save the output table
+#pathto.outTable <- "/data/nasser/Manuscript/table/Supplementary Tables/"
+
+# Perform Speckle analysis for confounding testing
+Idents(pd) <- "CellType"
+p = propeller(clusters=pd$CellType, sample=pd$SampleID, group=pd$Mutation)
+
+p
+
+# Save the results to a CSV file
+#write.table(p, file = paste0(pathto.outTable,"S2_speckle_old.csv"), quote = F, sep = ",", row.names = T)
+
+```
