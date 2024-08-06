@@ -153,18 +153,6 @@ grid.arrange(heatSmooth_LRRK2[[4]], matchingHeatmap_HC[[4]], ncol = 2)
 
 
 
-### 3. Knit the Document
-
-- Open the R Markdown file in RStudio.
-- Click the "Knit" button to generate the HTML, PDF, or Word document based on your YAML settings.
-
-### 4. Commit and Push the RMD File
-
-1. **Add the RMD File**:
-   ```bash
-   git add analysis.Rmd
-
-
 
 
 
