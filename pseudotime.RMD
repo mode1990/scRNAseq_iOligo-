@@ -1,0 +1,176 @@
+---
+title: "Single Cell RNA-seq Pseudotime Analysis"
+author: "Mo Dehestani"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+  pdf_document: default
+  word_document: default
+---
+
+## Introduction
+
+This document provides a detailed analysis of single-cell RNA sequencing data using various R packages. The analysis involves data preprocessing, dimensionality reduction, pseudotime trajectory analysis with Slingshot, and statistical testing.
+
+## Setup
+
+Ensure you have the necessary R packages installed. Run the following code in your R environment:
+
+```{r setup, include=FALSE}
+.libPaths(c("/data/Common_Folder/R/Single_cell_packages/", .libPaths()))
+required_packages <- c("slingshot", "Seurat", "SingleCellExperiment", "scran", "tradeSeq", "RColorBrewer", "ggpubr")
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages)
+lapply(required_packages, library, character.only = TRUE)
+
+
+
+# Set seed for reproducibility
+set.seed(200)
+
+# Load and preprocess data
+ol <- readRDS("/data/nasser/Manuscript/processedobject/ODC35_woClus8_subclust3_res0.15_NK")
+Idents(ol) <- "CellType"
+pd <- subset(ol, idents = c("iODC", "iOPC", "iPPC_0", "iPPC_1", "iPPC_2"))
+
+# Clean the cluster (optional)
+umap <- as.data.frame(Embeddings(object = pd[["umap"]]))
+colnames(umap) <- c("UMAP_1", "UMAP_2")
+pd$umap1 <- umap$UMAP_1
+pd$umap2 <- umap$UMAP2
+pd <- subset(x = pd, subset = umap1 > -2 & umap2 > 1)
+
+# Confine the Seurat object to only HVGs
+top2000_genes <- VariableFeatures(pd)
+pd <- subset(pd, features = top2000_genes)
+
+
+
+# Convert Seurat object to SingleCellExperiment
+metadata <- data.frame(pd@meta.data)
+countsMatrix <- LayerData(object = pd, assay = "RNA", layer = "data")
+sce <- SingleCellExperiment(list(counts = countsMatrix), metadata = metadata)
+reducedDims(sce) <- list(umap = pd@reductions$umap@cell.embeddings, 
+                         pca = pd@reductions$pca@cell.embeddings)
+
+
+# Run Slingshot
+root_cluster <- "iPPC_1"
+sce <- slingshot(sce, clusterLabels = sce@metadata$CellType, 
+                 reducedDim = 'umap', start.clus = root_cluster)
+
+
+# Visualize Slingshot pseudotime
+dimred <- data.frame(reducedDim(sce))
+clustering <- factor(unlist(sce@metadata$CellType))
+pal <- c(RColorBrewer::brewer.pal(9, "Set1"), RColorBrewer::brewer.pal(8, "Set2"))
+lineages <- getLineages(data = dimred, clusterLabels = clustering, omega = TRUE)
+crv <- getCurves(lineages)
+
+# Visualize trajectory with Slingshot color gradient
+colors <- colorRampPalette(brewer.pal(11, 'Spectral')[-6])(100)
+
+par(mfrow = c(1, 2))
+
+plotcol1 <- colors[cut(sce$slingPseudotime_1, breaks = 100)]
+plot(reducedDims(sce)$umap, col = plotcol1, pch = 16, asp = 1, main = "Lineage 1")
+lines(SlingshotDataSet(crv), lwd = 3, col = 'black')
+
+plot(dimred[, 1:2], col = pal[clustering], cex = 0.5, pch = 16)
+lines(SlingshotDataSet(sce), type = "lineages", lwd = 2, col = 'black')
+for (i in levels(clustering)) {
+  text(mean(dimred[clustering == i, 1]), mean(dimred[clustering == i, 2]), 
+       labels = i, font = 6)
+}
+
+
+# Kolmogorov-Smirnov test
+ks_result <- ks.test(slingPseudotime(sce)[metadata(sce)$Mutation == "LRRK2", 1],
+                     slingPseudotime(sce)[metadata(sce)$Mutation == "HC", 1])
+ks_result
+
+
+# Fit GAM models
+pseudotime <- slingPseudotime(sce, na = FALSE)
+cellWeights <- slingCurveWeights(sce)
+
+# Find optimal knot number
+set.seed(5)
+icMat <- evaluateK(counts = counts, sds = crv, k = 3:10, 
+                   nGenes = 100, verbose = TRUE)
+
+# Fit GAM models
+counts <- as.matrix(assay(sce, "counts"))
+gam <- fitGAM(counts = counts, pseudotime = pseudotime, 
+              cellWeights = cellWeights, nknots = 10,
+              conditions = factor(metadata(sce)$Mutation))
+
+
+# Association test
+assoRes <- associationTest(gam)
+assoRes$padj <- p.adjust(assoRes$pvalue, method = "fdr")
+assoRes <- subset(assoRes, padj < 0.05)
+assoRessorted <- assoRes[order(assoRes$waldStat, decreasing = TRUE), ]
+assoRessorted$genes <- row.names(assoRessorted)
+assoRessorted
+
+
+# Condition test
+conRes <- conditionTest(gam,pairwise = TRUE, l2fc = log2(1))
+conRes$padj <- p.adjust(conRes$pvalue, "fdr")
+conditionGenes <-  subset(conRes, padj < 0.05)
+conditionGenes <- conditionGenes[order(conditionGenes$waldStat, decreasing = TRUE), ]
+conditionGenes$genes <- rownames(conditionGenes)
+
+ 
+
+# Overlap between assoc and cond genes 
+overlapping_genes <-  as.data.frame(intersect(assoRessorted$genes, conditionGenes$genes)) 
+# Assuming assoRessorted and conditionGenes are data frames with columns including 'genes'
+overlapping_genes1 <- merge(assoRessorted, conditionGenes, by = "genes")
+
+ 
+# mean smoother plotting in heatmaps
+yhatSmooth <- predictSmooth(gam, gene = overlapping_genes$`intersect(assoRessorted$genes, conditionGenes$genes)`, nPoints = 50, tidy = FALSE)
+yhatSmoothScaled <- t(scale(t(yhatSmooth)))
+heatSmooth_LRRK2 <- pheatmap(yhatSmoothScaled[, 51:100],
+                           cluster_cols = FALSE,
+                           show_rownames = T, show_colnames = FALSE, main = "LRRK2", legend = FALSE,
+                           silent = TRUE, fontsize = 4, border_color = NA,
+)
+
+matchingHeatmap_HC <- pheatmap(yhatSmoothScaled[heatSmooth_LRRK2$tree_row$order, 1:50],
+                                 cluster_cols = FALSE, cluster_rows = FALSE,
+                                 show_rownames = T, show_colnames = FALSE, main = "HC",
+                                 legend = FALSE, silent = TRUE, fontsize = 4, border_color = NA,
+)
+
+grid.arrange(heatSmooth_LRRK2[[4]], matchingHeatmap_HC[[4]], ncol = 2)
+
+
+
+
+### 3. Knit the Document
+
+- Open the R Markdown file in RStudio.
+- Click the "Knit" button to generate the HTML, PDF, or Word document based on your YAML settings.
+
+### 4. Commit and Push the RMD File
+
+1. **Add the RMD File**:
+   ```bash
+   git add analysis.Rmd
+
+
+
+
+
+
+
+
+
+
+
