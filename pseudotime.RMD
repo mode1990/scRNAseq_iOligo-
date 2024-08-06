@@ -1,7 +1,7 @@
 ---
 title: "Single Cell RNA-seq Pseudotime Analysis"
 author: "Mo Dehestani"
-date: "`r Sys.Date()`"
+date: "July2024"
 output:
   html_document:
     toc: true
